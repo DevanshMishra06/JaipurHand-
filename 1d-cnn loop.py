@@ -8,9 +8,9 @@ import torch.nn as nn
 import torch.optim as optim
 
 # --- CONFIGURATION ---
-COM_PORT = 'COM3'  # Update for your OS (e.g., /dev/ttyACM0 on Mac/Linux)
+COM_PORT = None  # None = auto-detect Arduino; or set e.g. 'COM4' / '/dev/ttyACM0'
 BAUD_RATE = 115200
-BUFFER_SIZE = 150  # 1.5 seconds at 100Hz
+BUFFER_SIZE = 100  # 1.5 seconds at 100Hz
 
 # --- PYTORCH MODEL ---
 class SubvoxNet(nn.Module):
@@ -43,7 +43,7 @@ def process_signal(raw_window):
     return (filtered - mean) / std
 
 def get_window(ser, buffer):
-    """Reads from serial until the 150-sample buffer is full."""
+    """Reads from serial until the 100-sample buffer is full."""
     while len(buffer) < BUFFER_SIZE:
         try:
             line = ser.readline().decode('utf-8').strip()
@@ -75,6 +75,13 @@ def calibrate(ser, buffer, num_samples=15):
 
 # --- MAIN EXECUTION ---
 if __name__ == "__main__":
+    if COM_PORT is None:
+        from serial.tools import list_ports
+        ports = list(list_ports.comports())
+        arduino = [p for p in ports if p.vid == 0x2341 or 'arduino' in (p.description or '').lower()]
+        if not arduino:
+            raise SystemExit(f"No Arduino found. Available ports: {[p.device for p in ports] or 'none'}")
+        COM_PORT = arduino[0].device
     print(f"Connecting to Arduino on {COM_PORT}...")
     ser = serial.Serial(COM_PORT, BAUD_RATE)
     time.sleep(2)
